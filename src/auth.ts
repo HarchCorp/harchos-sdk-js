@@ -7,6 +7,15 @@
 
 import { AuthenticationError } from "./errors.js";
 
+// ─── Browser-safe env access ─────────────────────────────────────────────────
+
+function getEnvVar(key: string): string | undefined {
+  if (typeof process !== "undefined" && process.env) {
+    return process.env[key];
+  }
+  return undefined;
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface ApiKeyAuth {
@@ -181,7 +190,7 @@ export class AuthManager {
  * Create an API key auth provider from environment or explicit value.
  */
 export function apiKeyAuth(apiKey?: string): ApiKeyAuth {
-  const key = apiKey ?? process.env["HARCHOS_API_KEY"];
+  const key = apiKey ?? getEnvVar("HARCHOS_API_KEY");
   if (!key) {
     throw new AuthenticationError(
       "API key required. Pass explicitly or set HARCHOS_API_KEY env var.",
@@ -199,10 +208,10 @@ export function oauth2Auth(opts: {
   tokenUrl?: string;
   scopes?: string[];
 }): OAuth2Auth {
-  const clientId = opts.clientId ?? process.env["HARCHOS_CLIENT_ID"];
-  const clientSecret = opts.clientSecret ?? process.env["HARCHOS_CLIENT_SECRET"];
+  const clientId = opts.clientId ?? getEnvVar("HARCHOS_CLIENT_ID");
+  const clientSecret = opts.clientSecret ?? getEnvVar("HARCHOS_CLIENT_SECRET");
   const tokenUrl =
-    opts.tokenUrl ?? process.env["HARCHOS_TOKEN_URL"] ?? "https://auth.harchos.com/oauth2/token";
+    opts.tokenUrl ?? getEnvVar("HARCHOS_TOKEN_URL") ?? "https://auth.harchos.com/oauth2/token";
 
   if (!clientId || !clientSecret) {
     throw new AuthenticationError(

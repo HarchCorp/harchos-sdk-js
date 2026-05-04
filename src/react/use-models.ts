@@ -2,7 +2,7 @@
  * React Hook: useModels
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { HarchOSClient } from "../client.js";
 import type {
   Model,
@@ -29,12 +29,16 @@ export function useModels(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Memoize params by serialized key to avoid infinite re-render loops
+  const paramsKey = JSON.stringify(params);
+  const memoizedParams = useMemo(() => params, [paramsKey]);
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const result: PaginatedResponse<Model> = await client.models.list(params);
+      const result: PaginatedResponse<Model> = await client.models.list(memoizedParams);
       setModels(result.items);
       setTotalCount(result.totalCount);
       setHasMore(result.hasMore);
@@ -43,7 +47,7 @@ export function useModels(
     } finally {
       setLoading(false);
     }
-  }, [client, params]);
+  }, [client, memoizedParams]);
 
   useEffect(() => {
     fetch();

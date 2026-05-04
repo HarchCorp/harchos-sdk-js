@@ -10,4 +10,13 @@ export default defineConfig({
       exclude: ["src/react/**", "src/types/**", "src/index.ts"],
     },
   },
+  css: {
+    modules: false,
+  },
+  server: {
+    // Prevent picking up PostCSS config from parent directories
+    watch: {
+      ignored: ["**/postcss.config.*"],
+    },
+  },
 });

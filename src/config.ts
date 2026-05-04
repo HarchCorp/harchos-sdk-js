@@ -49,21 +49,30 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_USER_AGENT = "@harchos/sdk/0.1.0";
 
+// ─── Browser-safe env access ────────────────────────────────────────────────
+
+function getEnvVar(key: string): string | undefined {
+  if (typeof process !== "undefined" && process.env) {
+    return process.env[key];
+  }
+  return undefined;
+}
+
 // ─── Environment Variable Mapping ───────────────────────────────────────────
 
 function envString(key: string): string | undefined {
-  return process.env[key] ?? undefined;
+  return getEnvVar(key) ?? undefined;
 }
 
 function envNumber(key: string): number | undefined {
-  const raw = process.env[key];
+  const raw = getEnvVar(key);
   if (raw == null) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) ? n : undefined;
 }
 
 function envBoolean(key: string): boolean | undefined {
-  const raw = process.env[key]?.toLowerCase();
+  const raw = getEnvVar(key)?.toLowerCase();
   if (raw == null) return undefined;
   return raw === "true" || raw === "1" ? true : raw === "false" || raw === "0" ? false : undefined;
 }

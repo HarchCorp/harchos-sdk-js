@@ -5,7 +5,7 @@
  * with automatic loading, error, and refetch support.
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { HarchOSClient } from "../client.js";
 import type {
   Workload,
@@ -34,6 +34,10 @@ export function useWorkloads(
   const [error, setError] = useState<Error | null>(null);
   const cursorRef = useRef<string | null>(null);
   const paramsRef = useRef(params);
+
+  // Memoize params by serialized key to avoid infinite re-render loops
+  const paramsKey = JSON.stringify(params);
+  const memoizedParams = useMemo(() => params, [paramsKey]);
 
   const fetch = useCallback(async (append: boolean) => {
     setLoading(true);
@@ -72,10 +76,10 @@ export function useWorkloads(
   }, [fetch, hasMore, loading]);
 
   useEffect(() => {
-    paramsRef.current = params;
+    paramsRef.current = memoizedParams;
     cursorRef.current = null;
     fetch(false);
-  }, [fetch, params]);
+  }, [fetch, memoizedParams]);
 
   return { workloads, totalCount, hasMore, loading, error, refetch, fetchMore };
 }

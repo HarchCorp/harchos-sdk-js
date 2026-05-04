@@ -12,6 +12,11 @@ export default defineConfig([
     minify: false,
     target: "node18",
     outDir: "dist",
+    outExtension(ctx) {
+      return {
+        js: ctx.format === "cjs" ? ".cjs" : ".mjs",
+      };
+    },
   },
   {
     entry: ["src/react/index.ts"],
@@ -24,5 +29,10 @@ export default defineConfig([
     minify: false,
     target: "node18",
     outDir: "dist/react",
+    outExtension(ctx) {
+      return {
+        js: ctx.format === "cjs" ? ".cjs" : ".mjs",
+      };
+    },
   },
 ]);

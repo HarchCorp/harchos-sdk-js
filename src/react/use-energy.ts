@@ -4,7 +4,7 @@
  * Provides access to carbon intensity and energy consumption data.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { HarchOSClient } from "../client.js";
 import type {
   CarbonIntensity,
@@ -29,19 +29,23 @@ export function useCarbonIntensity(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Memoize params by serialized key to avoid infinite re-render loops
+  const paramsKey = JSON.stringify(params);
+  const memoizedParams = useMemo(() => params, [paramsKey]);
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const result = await client.energy.carbonIntensity(params);
+      const result = await client.energy.carbonIntensity(memoizedParams);
       setData(result);
     } catch (err) {
       setError(err as Error);
     } finally {
       setLoading(false);
     }
-  }, [client, params]);
+  }, [client, memoizedParams]);
 
   useEffect(() => {
     fetch();
@@ -69,13 +73,17 @@ export function useEnergyConsumption(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Memoize params by serialized key to avoid infinite re-render loops
+  const paramsKey = JSON.stringify(params);
+  const memoizedParams = useMemo(() => params, [paramsKey]);
+
   const fetch = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const result: PaginatedResponse<EnergyConsumption> =
-        await client.energy.consumption(params);
+        await client.energy.consumption(memoizedParams);
       setConsumption(result.items);
       setTotalCount(result.totalCount);
       setHasMore(result.hasMore);
@@ -84,7 +92,7 @@ export function useEnergyConsumption(
     } finally {
       setLoading(false);
     }
-  }, [client, params]);
+  }, [client, memoizedParams]);
 
   useEffect(() => {
     fetch();
