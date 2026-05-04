@@ -5,29 +5,29 @@
  * and sovereignty enforcement for all API interactions.
  */
 
-import { AuthManager, type AuthProvider, apiKeyAuth, oauth2Auth } from "./auth.js";
+import { AuthManager, type AuthProvider, apiKeyAuth } from "./auth.js";
 import { type ClientConfig, resolveConfig, type ResolveConfigOptions } from "./config.js";
 import { CircuitBreaker, createCircuitBreaker, type CircuitBreakerConfig } from "./circuit-breaker.js";
-import { withRetry, type RetryConfig, isRetryableError } from "./retry.js";
+import { withRetry, type RetryConfig } from "./retry.js";
 import {
   HarchOSError,
   NetworkError,
   RateLimitError,
   TimeoutError,
   SovereigntyViolationError,
-  isHarchOSError,
 } from "./errors.js";
 import { WorkloadsResource } from "./resources/workloads.js";
 import { ModelsResource } from "./resources/models.js";
 import { HubsResource } from "./resources/hubs.js";
 import { EnergyResource } from "./resources/energy.js";
-import type { RequestOptions, ApiResponse, ApiErrorResponse, ApiResult } from "./types/index.js";
+import type { RequestOptions, ApiErrorResponse, ApiResult } from "./types/index.js";
 import type { SovereignRegion } from "./types/sovereignty.js";
 
 // ─── HTTP Client Interface ──────────────────────────────────────────────────
 
 export interface HttpRequestOptions {
-  query?: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query?: Record<string, any>;
   body?: unknown;
   headers?: Record<string, string>;
   idempotencyKey?: string;
@@ -191,7 +191,7 @@ export class HarchOSClient implements HttpClient {
 
   private async processResponse<T>(
     response: Response,
-    opts: HttpRequestOptions,
+    _opts: HttpRequestOptions,
   ): Promise<T> {
     const requestId = response.headers.get("x-request-id") ?? undefined;
 
@@ -277,7 +277,8 @@ export class HarchOSClient implements HttpClient {
 
   // ─── Helpers ──────────────────────────────────────────────────────────
 
-  private buildUrl(path: string, query?: Record<string, unknown>): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private buildUrl(path: string, query?: Record<string, any>): string {
     const base = `${this.config.baseUrl}/${this.config.apiVersion}`;
     const url = new URL(path, base);
 

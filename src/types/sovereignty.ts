@@ -172,7 +172,7 @@ export function createSovereignConfig(input?: SovereignConfigInput): SovereignCo
     dataResidency,
     encryptionAtRest,
     auditLogging,
-  }, "SovereignConfig");
+  });
 }
 
 // ─── Data Classification ────────────────────────────────────────────────────

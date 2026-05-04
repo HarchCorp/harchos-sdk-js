@@ -222,7 +222,7 @@ export class StreamClient implements AsyncIterable<StreamMessage>, AsyncDisposab
     }
   }
 
-  private flushPending(reason: string, error?: Error): void {
+  private flushPending(_reason: string, error?: Error): void {
     while (this.pendingResolvers.length > 0) {
       const resolver = this.pendingResolvers.shift()!;
       if (error) {

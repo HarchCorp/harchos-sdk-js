@@ -9,7 +9,6 @@
  */
 
 import {
-  HarchOSError,
   NetworkError,
   RateLimitError,
   TimeoutError,

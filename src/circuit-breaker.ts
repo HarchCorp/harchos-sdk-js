@@ -111,7 +111,7 @@ export class CircuitBreaker {
 
       try {
         this.halfOpenProbe = fn();
-        const result = await this.halfOpenProbe;
+        const result = await this.halfOpenProbe as T;
         this.recordSuccess();
         return result;
       } catch (error) {

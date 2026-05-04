@@ -5,7 +5,7 @@
  * Handles automatic token refresh with a safety margin.
  */
 
-import { AuthenticationError, TokenExpiredError } from "./errors.js";
+import { AuthenticationError } from "./errors.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

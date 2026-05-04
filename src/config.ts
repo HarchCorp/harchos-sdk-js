@@ -9,8 +9,6 @@ import {
   createSovereignConfig,
   type SovereignConfig,
   type SovereignConfigInput,
-  type SovereignRegion,
-  type SovereigntyLevel,
 } from "./types/sovereignty.js";
 import { ConfigurationError, MissingProfileError } from "./errors.js";
 
