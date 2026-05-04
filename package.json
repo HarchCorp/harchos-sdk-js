@@ -65,6 +65,8 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.0",
     "@vitest/coverage-v8": "^2.1.9",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3",

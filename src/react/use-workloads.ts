@@ -46,7 +46,7 @@ export function useWorkloads(
       });
 
       if (append) {
-        setWorkloads((prev) => [...prev, ...result.items]);
+        setWorkloads((prev: Workload[]) => [...prev, ...result.items]);
       } else {
         setWorkloads(result.items);
       }
