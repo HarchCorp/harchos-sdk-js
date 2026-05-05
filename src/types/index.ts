@@ -113,3 +113,19 @@ export type {
   PlatformMetrics,
   DetailedHealth,
 } from "./monitoring.js";
+
+// Carbon-aware types
+export type {
+  CarbonIntensityZone,
+  CarbonIntensityZoneList,
+  CarbonOptimalHub,
+  CarbonOptimalHubParams,
+  CarbonOptimizeResult,
+  CarbonOptimizeParams,
+  CarbonAction,
+  CarbonRankedHub,
+  CarbonForecast,
+  CarbonGreenWindow,
+  CarbonMetrics,
+  CarbonDashboard,
+} from "./carbon.js";

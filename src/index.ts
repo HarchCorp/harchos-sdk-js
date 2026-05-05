@@ -212,3 +212,22 @@ export { EnergyResource } from "./resources/energy.js";
 export { PricingResource } from "./resources/pricing.js";
 export { RegionsResource } from "./resources/regions.js";
 export { MonitoringResource } from "./resources/monitoring.js";
+export { CarbonResource } from "./resources/carbon.js";
+
+// ─── Carbon Types ────────────────────────────────────────────────────────────
+
+export type {
+  CarbonIntensityZone,
+  CarbonIntensityZoneList,
+  CarbonOptimalHub,
+  CarbonOptimalHubParams,
+  CarbonOptimizeResult,
+  CarbonOptimizeParams,
+  CarbonAction,
+  CarbonRankedHub,
+  CarbonForecastPoint as CarbonForecastPointType,
+  CarbonForecast,
+  CarbonGreenWindow,
+  CarbonMetrics,
+  CarbonDashboard,
+} from "./types/carbon.js";

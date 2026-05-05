@@ -1,6 +1,6 @@
 {
   "name": "@harchos/sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Official TypeScript/JavaScript SDK for HarchOS — Sovereign AI Infrastructure",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -49,7 +49,11 @@
     "morocco",
     "africa",
     "cloud",
-    "ai"
+    "ai",
+    "carbon-aware",
+    "gpu",
+    "green-computing",
+    "typescript"
   ],
   "author": "VitalCheffe <amineharchelkorane5@gmail.com>",
   "license": "MIT",
@@ -60,7 +64,7 @@
   "bugs": {
     "url": "https://github.com/HarchCorp/harchos-sdk-js/issues"
   },
-  "homepage": "https://harchos.com",
+  "homepage": "https://harchcorp.com",
   "engines": {
     "node": ">=18.0.0"
   },
