@@ -116,4 +116,4 @@ export { RegionsResource } from "./resources/regions.js";
 export { MonitoringResource } from "./resources/monitoring.js";
 
 // Version
-export const VERSION = "0.2.1";
+export const VERSION = "0.2.2";
