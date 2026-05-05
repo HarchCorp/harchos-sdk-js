@@ -1,0 +1,25 @@
+# CODEOWNERS — HarchOS SDK
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything
+* @VitalCheffe
+
+# Core SDK
+/src/client.ts @VitalCheffe
+/src/config.ts @VitalCheffe
+/src/auth.ts @VitalCheffe
+
+# Sovereignty system
+/src/types/sovereignty.ts @VitalCheffe
+/src/errors.ts @VitalCheffe
+
+# Infrastructure patterns
+/src/circuit-breaker.ts @VitalCheffe
+/src/retry.ts @VitalCheffe
+/src/streaming.ts @VitalCheffe
+
+# React hooks
+/src/react/ @VitalCheffe
+
+# CI/CD
+/.github/ @VitalCheffe
