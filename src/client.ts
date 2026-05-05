@@ -20,6 +20,9 @@ import { WorkloadsResource } from "./resources/workloads.js";
 import { ModelsResource } from "./resources/models.js";
 import { HubsResource } from "./resources/hubs.js";
 import { EnergyResource } from "./resources/energy.js";
+import { PricingResource } from "./resources/pricing.js";
+import { RegionsResource } from "./resources/regions.js";
+import { MonitoringResource } from "./resources/monitoring.js";
 import type { RequestOptions, ApiErrorResponse, ApiResult } from "./types/index.js";
 import type { SovereignRegion } from "./types/sovereignty.js";
 
@@ -72,6 +75,9 @@ export class HarchOSClient implements HttpClient {
   public readonly models: ModelsResource;
   public readonly hubs: HubsResource;
   public readonly energy: EnergyResource;
+  public readonly pricing: PricingResource;
+  public readonly regions: RegionsResource;
+  public readonly monitoring: MonitoringResource;
 
   private retryConfig: Partial<RetryConfig>;
 
@@ -104,6 +110,9 @@ export class HarchOSClient implements HttpClient {
     this.models = new ModelsResource(this);
     this.hubs = new HubsResource(this);
     this.energy = new EnergyResource(this);
+    this.pricing = new PricingResource(this);
+    this.regions = new RegionsResource(this);
+    this.monitoring = new MonitoringResource(this);
   }
 
   // ─── HTTP Methods ──────────────────────────────────────────────────────

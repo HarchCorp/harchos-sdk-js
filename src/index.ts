@@ -180,9 +180,35 @@ export type {
   GetCarbonIntensityParams,
 } from "./types/energy.js";
 
+export type {
+  // Pricing
+  PricingPlan,
+  BillingRecord,
+  CostBreakdown,
+  CostEstimate,
+  ListPricingPlansParams,
+  ListBillingRecordsParams,
+  EstimateCostParams,
+} from "./types/pricing.js";
+
+export type {
+  // Regions
+  Region,
+  ListRegionsParams,
+} from "./types/regions.js";
+
+export type {
+  // Monitoring
+  PlatformMetrics,
+  DetailedHealth,
+} from "./types/monitoring.js";
+
 // ─── Resource Modules ───────────────────────────────────────────────────────
 
 export { WorkloadsResource } from "./resources/workloads.js";
 export { ModelsResource } from "./resources/models.js";
 export { HubsResource } from "./resources/hubs.js";
 export { EnergyResource } from "./resources/energy.js";
+export { PricingResource } from "./resources/pricing.js";
+export { RegionsResource } from "./resources/regions.js";
+export { MonitoringResource } from "./resources/monitoring.js";

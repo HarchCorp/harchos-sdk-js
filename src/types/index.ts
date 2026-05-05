@@ -90,3 +90,26 @@ export type {
   ListEnergyConsumptionParams,
   GetCarbonIntensityParams,
 } from "./energy.js";
+
+// Pricing types
+export type {
+  PricingPlan,
+  BillingRecord,
+  CostBreakdown,
+  CostEstimate,
+  ListPricingPlansParams,
+  ListBillingRecordsParams,
+  EstimateCostParams,
+} from "./pricing.js";
+
+// Region types
+export type {
+  Region,
+  ListRegionsParams,
+} from "./regions.js";
+
+// Monitoring types
+export type {
+  PlatformMetrics,
+  DetailedHealth,
+} from "./monitoring.js";
