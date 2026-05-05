@@ -1,234 +1,383 @@
 /**
- * HarchOS SDK error hierarchy.
+ * @harchos/sdk v0.3.0 — Error Classes
  *
- * All exceptions inherit from {@link HarchOSError} for easy catch-all handling.
+ * Custom error hierarchy with structured codes (E#### format),
+ * human-readable titles, and machine-readable details.
+ * Every error inherits from HarchOSError for easy catch-all handling.
  */
 
-/** Base exception for all HarchOS SDK errors. */
+// ---------------------------------------------------------------------------
+// Base Error
+// ---------------------------------------------------------------------------
+
 export class HarchOSError extends Error {
-  public readonly code?: string;
+  /** Machine-readable error code in E#### format */
+  public readonly code: string;
+  /** Short human-readable title */
+  public readonly title: string;
+  /** Detailed error description */
+  public readonly detail: string;
+  /** HTTP status code (if applicable) */
   public readonly statusCode?: number;
+  /** Response headers */
   public readonly headers: Record<string, string>;
+  /** Raw response body */
   public readonly body?: unknown;
 
-  constructor(
-    message = "An unknown error occurred",
-    opts?: {
-      code?: string;
-      statusCode?: number;
-      headers?: Record<string, string>;
-      body?: unknown;
-    },
-  ) {
-    super(message);
-    this.name = "HarchOSError";
-    this.code = opts?.code;
-    this.statusCode = opts?.statusCode;
-    this.headers = opts?.headers ?? {};
-    this.body = opts?.body;
+  constructor(opts: {
+    message?: string;
+    code?: string;
+    title?: string;
+    detail?: string;
+    statusCode?: number;
+    headers?: Record<string, string>;
+    body?: unknown;
+  }) {
+    super(opts.message ?? opts.title ?? 'An unknown error occurred');
+    this.name = 'HarchOSError';
+    this.code = opts.code ?? 'E0000';
+    this.title = opts.title ?? 'Unknown Error';
+    this.detail = opts.detail ?? opts.message ?? '';
+    this.statusCode = opts.statusCode;
+    this.headers = opts.headers ?? {};
+    this.body = opts.body;
+  }
+
+  /** String representation with code, title, and detail */
+  override toString(): string {
+    return `${this.name} [${this.code}]: ${this.title} — ${this.detail}`;
+  }
+
+  /** JSON-serializable representation */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      code: this.code,
+      title: this.title,
+      detail: this.detail,
+      statusCode: this.statusCode,
+    };
   }
 }
 
-/** Raised when authentication fails. */
+// ---------------------------------------------------------------------------
+// Authentication Errors
+// ---------------------------------------------------------------------------
+
 export class AuthenticationError extends HarchOSError {
-  constructor(message = "Authentication failed", opts?: { code?: string; statusCode?: number }) {
-    super(message, { code: opts?.code ?? "authentication_error", statusCode: opts?.statusCode });
-    this.name = "AuthenticationError";
+  constructor(detail = 'Authentication failed', opts?: { headers?: Record<string, string>; body?: unknown }) {
+    super({
+      message: 'Authentication failed',
+      code: 'E1001',
+      title: 'Authentication Error',
+      detail,
+      statusCode: 401,
+      headers: opts?.headers,
+      body: opts?.body,
+    });
+    this.name = 'AuthenticationError';
   }
 }
 
-/** Raised when the API key is invalid. */
-export class InvalidAPIKeyError extends AuthenticationError {
-  constructor(message = "Invalid API key") {
-    super(message, { code: "invalid_api_key", statusCode: 401 });
-    this.name = "InvalidAPIKeyError";
+export class InvalidAPIKeyError extends HarchOSError {
+  constructor(detail = 'The provided API key is invalid') {
+    super({
+      message: 'Invalid API key',
+      code: 'E1002',
+      title: 'Invalid API Key',
+      detail,
+      statusCode: 401,
+    });
+    this.name = 'InvalidAPIKeyError';
   }
 }
 
-/** Raised when the API key has expired. */
-export class APIKeyExpiredError extends AuthenticationError {
-  constructor(message = "API key has expired") {
-    super(message, { code: "api_key_expired", statusCode: 401 });
-    this.name = "APIKeyExpiredError";
-  }
-}
+// ---------------------------------------------------------------------------
+// Permission Errors
+// ---------------------------------------------------------------------------
 
-/** Raised when the authenticated principal lacks permissions. */
 export class PermissionDeniedError extends HarchOSError {
-  constructor(message = "Permission denied") {
-    super(message, { code: "permission_denied", statusCode: 403 });
-    this.name = "PermissionDeniedError";
+  constructor(detail = 'You do not have permission to perform this action') {
+    super({
+      message: 'Permission denied',
+      code: 'E2001',
+      title: 'Permission Denied',
+      detail,
+      statusCode: 403,
+    });
+    this.name = 'PermissionDeniedError';
   }
 }
 
-/** Raised on HTTP 400. */
+// ---------------------------------------------------------------------------
+// Client Errors
+// ---------------------------------------------------------------------------
+
 export class BadRequestError extends HarchOSError {
-  constructor(message = "Bad request") {
-    super(message, { code: "bad_request", statusCode: 400 });
-    this.name = "BadRequestError";
+  constructor(detail = 'The request was malformed', opts?: { headers?: Record<string, string>; body?: unknown }) {
+    super({
+      message: 'Bad request',
+      code: 'E3001',
+      title: 'Bad Request',
+      detail,
+      statusCode: 400,
+      headers: opts?.headers,
+      body: opts?.body,
+    });
+    this.name = 'BadRequestError';
   }
 }
 
-/** Raised on HTTP 401. */
-export class UnauthorizedError extends AuthenticationError {
-  constructor(message = "Unauthorized") {
-    super(message, { code: "unauthorized", statusCode: 401 });
-    this.name = "UnauthorizedError";
-  }
-}
-
-/** Raised on HTTP 403. */
-export class ForbiddenError extends HarchOSError {
-  constructor(message = "Forbidden") {
-    super(message, { code: "forbidden", statusCode: 403 });
-    this.name = "ForbiddenError";
-  }
-}
-
-/** Raised on HTTP 404. */
 export class NotFoundError extends HarchOSError {
-  constructor(message = "Resource not found") {
-    super(message, { code: "not_found", statusCode: 404 });
-    this.name = "NotFoundError";
+  constructor(detail = 'The requested resource was not found', opts?: { headers?: Record<string, string>; body?: unknown }) {
+    super({
+      message: 'Resource not found',
+      code: 'E3002',
+      title: 'Not Found',
+      detail,
+      statusCode: 404,
+      headers: opts?.headers,
+      body: opts?.body,
+    });
+    this.name = 'NotFoundError';
   }
 }
 
-/** Raised on HTTP 409. */
 export class ConflictError extends HarchOSError {
-  constructor(message = "Conflict") {
-    super(message, { code: "conflict", statusCode: 409 });
-    this.name = "ConflictError";
+  constructor(detail = 'The request conflicts with the current state') {
+    super({
+      message: 'Conflict',
+      code: 'E3003',
+      title: 'Conflict',
+      detail,
+      statusCode: 409,
+    });
+    this.name = 'ConflictError';
   }
 }
 
-/** Raised on HTTP 429. */
+export class ValidationError extends HarchOSError {
+  public readonly field?: string;
+
+  constructor(detail = 'Validation failed', field?: string) {
+    super({
+      message: 'Validation error',
+      code: 'E3004',
+      title: 'Validation Error',
+      detail: field ? `${detail} (field: ${field})` : detail,
+    });
+    this.name = 'ValidationError';
+    this.field = field;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rate Limit Error
+// ---------------------------------------------------------------------------
+
 export class RateLimitError extends HarchOSError {
   public readonly retryAfter?: number;
 
-  constructor(message = "Rate limit exceeded", retryAfter?: number) {
-    super(message, { code: "rate_limit", statusCode: 429 });
-    this.name = "RateLimitError";
+  constructor(detail = 'Rate limit exceeded', retryAfter?: number, opts?: { headers?: Record<string, string>; body?: unknown }) {
+    super({
+      message: 'Rate limit exceeded',
+      code: 'E4001',
+      title: 'Rate Limit Exceeded',
+      detail: retryAfter
+        ? `${detail} — retry after ${retryAfter}s`
+        : detail,
+      statusCode: 429,
+      headers: opts?.headers,
+      body: opts?.body,
+    });
+    this.name = 'RateLimitError';
     this.retryAfter = retryAfter;
   }
 }
 
-/** Raised on HTTP 500. */
+// ---------------------------------------------------------------------------
+// Server Errors
+// ---------------------------------------------------------------------------
+
 export class InternalServerError extends HarchOSError {
-  constructor(message = "Internal server error") {
-    super(message, { code: "internal_server_error", statusCode: 500 });
-    this.name = "InternalServerError";
+  constructor(detail = 'An internal server error occurred', opts?: { headers?: Record<string, string>; body?: unknown }) {
+    super({
+      message: 'Internal server error',
+      code: 'E5001',
+      title: 'Internal Server Error',
+      detail,
+      statusCode: 500,
+      headers: opts?.headers,
+      body: opts?.body,
+    });
+    this.name = 'InternalServerError';
   }
 }
 
-/** Raised on HTTP 503. */
 export class ServiceUnavailableError extends HarchOSError {
-  constructor(message = "Service temporarily unavailable") {
-    super(message, { code: "service_unavailable", statusCode: 503 });
-    this.name = "ServiceUnavailableError";
+  constructor(detail = 'The service is temporarily unavailable') {
+    super({
+      message: 'Service unavailable',
+      code: 'E5002',
+      title: 'Service Unavailable',
+      detail,
+      statusCode: 503,
+    });
+    this.name = 'ServiceUnavailableError';
   }
 }
 
-/** Raised when an operation violates data sovereignty constraints. */
+// ---------------------------------------------------------------------------
+// Sovereignty Errors
+// ---------------------------------------------------------------------------
+
 export class SovereigntyError extends HarchOSError {
-  constructor(message = "Operation violates sovereignty constraints") {
-    super(message, { code: "sovereignty_violation" });
-    this.name = "SovereigntyError";
+  constructor(detail = 'Operation violates sovereignty constraints') {
+    super({
+      message: 'Sovereignty violation',
+      code: 'E6001',
+      title: 'Sovereignty Error',
+      detail,
+    });
+    this.name = 'SovereigntyError';
   }
 }
 
-/** Raised when data residency constraints are violated. */
-export class DataResidencyError extends SovereigntyError {
-  public readonly requiredRegion?: string;
-  public readonly actualRegion?: string;
-
-  constructor(
-    message = "Data residency constraint violated",
-    opts?: { requiredRegion?: string; actualRegion?: string },
-  ) {
-    super(message);
-    this.name = "DataResidencyError";
-    this.requiredRegion = opts?.requiredRegion;
-    this.actualRegion = opts?.actualRegion;
-  }
-}
-
-/** Raised when the carbon budget is exceeded. */
-export class CarbonBudgetExceededError extends SovereigntyError {
+export class CarbonBudgetExceededError extends HarchOSError {
   public readonly budgetGrams?: number;
   public readonly actualGrams?: number;
 
-  constructor(
-    message = "Carbon budget exceeded",
-    opts?: { budgetGrams?: number; actualGrams?: number },
-  ) {
-    super(message);
-    this.name = "CarbonBudgetExceededError";
+  constructor(detail = 'Carbon budget exceeded', opts?: { budgetGrams?: number; actualGrams?: number }) {
+    super({
+      message: 'Carbon budget exceeded',
+      code: 'E6002',
+      title: 'Carbon Budget Exceeded',
+      detail: opts?.budgetGrams != null && opts?.actualGrams != null
+        ? `${detail} (budget: ${opts.budgetGrams}g, actual: ${opts.actualGrams}g)`
+        : detail,
+    });
+    this.name = 'CarbonBudgetExceededError';
     this.budgetGrams = opts?.budgetGrams;
     this.actualGrams = opts?.actualGrams;
   }
 }
 
-/** Raised when request data fails validation. */
-export class ValidationError extends HarchOSError {
-  public readonly field?: string;
+// ---------------------------------------------------------------------------
+// Network Errors
+// ---------------------------------------------------------------------------
 
-  constructor(message = "Validation error", field?: string) {
-    super(message, { code: "validation_error" });
-    this.name = "ValidationError";
-    this.field = field;
-  }
-}
-
-/** Raised when a request times out. */
 export class TimeoutError extends HarchOSError {
-  constructor(message = "Request timed out") {
-    super(message, { code: "timeout" });
-    this.name = "TimeoutError";
+  constructor(detail = 'Request timed out') {
+    super({
+      message: 'Request timed out',
+      code: 'E7001',
+      title: 'Timeout',
+      detail,
+    });
+    this.name = 'TimeoutError';
   }
 }
 
-/** Raised when a connection fails. */
 export class ConnectionError extends HarchOSError {
-  constructor(message = "Connection failed") {
-    super(message, { code: "connection_error" });
-    this.name = "ConnectionError";
+  constructor(detail = 'Connection failed') {
+    super({
+      message: 'Connection failed',
+      code: 'E7002',
+      title: 'Connection Error',
+      detail,
+    });
+    this.name = 'ConnectionError';
+  }
+}
+
+export class NetworkError extends HarchOSError {
+  public readonly cause?: Error;
+
+  constructor(detail = 'Network error occurred', opts?: { cause?: Error }) {
+    super({
+      message: 'Network error',
+      code: 'E7003',
+      title: 'Network Error',
+      detail,
+    });
+    this.name = 'NetworkError';
+    this.cause = opts?.cause;
   }
 }
 
 // ---------------------------------------------------------------------------
-// Status-code mapping
+// Type guard
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const STATUS_CODE_MAP: Record<number, new (msg?: string, ...args: any[]) => HarchOSError> = {
-  400: BadRequestError,
-  401: UnauthorizedError,
-  403: ForbiddenError,
-  404: NotFoundError,
+export function isHarchOSError(error: unknown): error is HarchOSError {
+  return error instanceof HarchOSError;
+}
+
+// ---------------------------------------------------------------------------
+// Status Code → Error Class mapping
+// ---------------------------------------------------------------------------
+
+const STATUS_CODE_MAP: Record<number, new (detail?: string) => HarchOSError> = {
+  400: BadRequestError as new (detail?: string) => HarchOSError,
+  401: AuthenticationError as new (detail?: string) => HarchOSError,
+  403: PermissionDeniedError,
+  404: NotFoundError as new (detail?: string) => HarchOSError,
   409: ConflictError,
-  429: RateLimitError,
-  500: InternalServerError,
+  429: RateLimitError as new (detail?: string) => HarchOSError,
+  500: InternalServerError as new (detail?: string) => HarchOSError,
   503: ServiceUnavailableError,
 };
 
-/** Raise the appropriate typed error for an HTTP status code. */
+/**
+ * Raise the appropriate typed error for an HTTP status code.
+ */
 export function raiseForStatus(
   statusCode: number,
   message: string,
   headers?: Record<string, string>,
   body?: unknown,
-): void {
-  if (statusCode >= 200 && statusCode < 300) return;
+): never {
+  if (statusCode >= 200 && statusCode < 300) {
+    // Should never reach here, but just in case
+    return undefined as never;
+  }
 
   const ErrorClass = STATUS_CODE_MAP[statusCode];
+
   if (ErrorClass === RateLimitError) {
-    const retryAfter = headers?.["retry-after"]
-      ? Number(headers["retry-after"])
+    const retryAfter = headers?.['retry-after']
+      ? Number(headers['retry-after'])
       : undefined;
-    throw new RateLimitError(message, retryAfter);
+    throw new RateLimitError(message, retryAfter, { headers, body });
   }
+
+  if (ErrorClass === AuthenticationError) {
+    throw new AuthenticationError(message, { headers, body });
+  }
+
+  if (ErrorClass === BadRequestError) {
+    throw new BadRequestError(message, { headers, body });
+  }
+
+  if (ErrorClass === NotFoundError) {
+    throw new NotFoundError(message, { headers, body });
+  }
+
+  if (ErrorClass === InternalServerError) {
+    throw new InternalServerError(message, { headers, body });
+  }
+
   if (ErrorClass) {
     throw new ErrorClass(message);
   }
-  throw new HarchOSError(message, { statusCode, body });
+
+  throw new HarchOSError({
+    message,
+    code: `E${statusCode}`,
+    title: `HTTP ${statusCode}`,
+    detail: message,
+    statusCode,
+    headers,
+    body,
+  });
 }

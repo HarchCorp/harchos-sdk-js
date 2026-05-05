@@ -1,15 +1,20 @@
 {
   "name": "@harchos/sdk",
-  "version": "0.2.2",
-  "description": "The official TypeScript/JavaScript SDK for HarchOS — Carbon-Aware GPU Orchestration Platform",
+  "version": "0.3.0",
+  "description": "The official TypeScript/JavaScript SDK for HarchOS — Carbon-Aware GPU Orchestration Platform with OpenAI-compatible inference",
   "main": "dist/index.cjs",
   "types": "dist/index.d.ts",
   "module": "dist/index.mjs",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "files": [
@@ -18,7 +23,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build": "tsup",
     "prepublishOnly": "npm run build",
     "lint": "tsc --noEmit"
   },
@@ -33,7 +38,10 @@
     "africa",
     "green-computing",
     "sustainability",
-    "ai-infrastructure"
+    "ai-infrastructure",
+    "openai-compatible",
+    "inference",
+    "llm"
   ],
   "author": "HarchCorp <contact@harchos.com>",
   "license": "MIT",
@@ -41,7 +49,7 @@
     "type": "git",
     "url": "git+https://github.com/HarchCorp/harchos-sdk-js.git"
   },
-  "homepage": "https://harchcorp.vercel.app",
+  "homepage": "https://harchos.ai",
   "bugs": {
     "url": "https://github.com/HarchCorp/harchos-sdk-js/issues"
   },
@@ -50,6 +58,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "tsup": "^8.0.0",
     "typescript": "^5.3.0"
   },

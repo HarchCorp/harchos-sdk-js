@@ -1,8 +1,8 @@
 /**
- * TypeScript type definitions for HarchOS API responses.
+ * @harchos/sdk v0.3.0 — Shared TypeScript Types
  *
- * These interfaces mirror the Python SDK's Pydantic models and the
- * server's JSON response shapes.
+ * Complete type definitions for all HarchOS API requests and responses.
+ * Every inference response includes a CarbonFootprint for carbon tracking.
  */
 
 // ---------------------------------------------------------------------------
@@ -27,14 +27,121 @@ export interface ResourceMetadata {
 }
 
 // ---------------------------------------------------------------------------
-// Health
+// Carbon Footprint — attached to every inference response
 // ---------------------------------------------------------------------------
 
-export interface HealthStatus {
-  status: string;
-  version: string;
-  uptime_seconds: number;
-  timestamp: string;
+export interface CarbonFootprint {
+  /** Total CO2 emitted in grams */
+  gco2: number;
+  /** Percentage of energy from renewable sources */
+  renewable_percentage: number;
+  /** CO2 saved compared to industry average, in grams */
+  saved_vs_average_gco2: number;
+  /** Zone where inference ran */
+  zone: string;
+  /** Hub where inference ran */
+  hub_id?: string;
+  /** Model used for the estimate */
+  estimation_method: string;
+}
+
+// ---------------------------------------------------------------------------
+// Inference — OpenAI-compatible types
+// ---------------------------------------------------------------------------
+
+export type ChatMessageRole = 'system' | 'user' | 'assistant' | 'tool';
+
+export interface ChatCompletionMessageParam {
+  role: ChatMessageRole;
+  content: string;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCall[];
+}
+
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+export interface ChatCompletionRequest {
+  /** Model ID to use for completion */
+  model: string;
+  /** Messages to generate completion for */
+  messages: ChatCompletionMessageParam[];
+  /** Enable streaming (returns async iterable) */
+  stream?: boolean;
+  /** Maximum tokens to generate */
+  max_tokens?: number;
+  /** Sampling temperature (0-2) */
+  temperature?: number;
+  /** Top-p nucleus sampling */
+  top_p?: number;
+  /** Stop sequences */
+  stop?: string | string[];
+  /** Seed for deterministic sampling */
+  seed?: number;
+  /** Response format */
+  response_format?: { type: 'text' | 'json_object' };
+  /** Enable carbon-aware scheduling */
+  carbon_aware?: boolean;
+  /** Maximum carbon intensity threshold (gCO2/kWh) */
+  carbon_max_gco2?: number;
+  /** Preferred region for inference */
+  region?: string;
+  /** Preferred hub ID */
+  hub_id?: string;
+}
+
+export interface ChatCompletionChoice {
+  index: number;
+  message: {
+    role: ChatMessageRole;
+    content: string | null;
+    tool_calls?: ToolCall[];
+  };
+  finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+}
+
+export interface ChatCompletionUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface ChatCompletionResponse {
+  id: string;
+  object: 'chat.completion';
+  created: number;
+  model: string;
+  choices: ChatCompletionChoice[];
+  usage: ChatCompletionUsage;
+  /** Carbon footprint for this inference — HarchOS unique feature */
+  carbon_footprint: CarbonFootprint;
+}
+
+export interface ChatCompletionChunkChoice {
+  index: number;
+  delta: {
+    role?: ChatMessageRole;
+    content?: string;
+    tool_calls?: ToolCall[];
+  };
+  finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+}
+
+export interface ChatCompletionChunk {
+  id: string;
+  object: 'chat.completion.chunk';
+  created: number;
+  model: string;
+  choices: ChatCompletionChunkChoice[];
+  /** Carbon footprint (present on the last chunk) */
+  carbon_footprint?: CarbonFootprint;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,7 +184,7 @@ export interface CarbonOptimalHub {
   defer_hours: number;
   defer_reason: string;
   estimated_carbon_saved_kg: number;
-  alternative_hubs: Record<string, unknown>[];
+  alternative_hubs: CarbonOptimalHub[];
   analyzed_at: string;
 }
 
@@ -92,7 +199,7 @@ export interface CarbonOptimizeResult {
   actual_carbon_kg: number;
   deferred_hours: number;
   reason: string;
-  estimated_green_window?: Record<string, unknown>;
+  estimated_green_window?: { start: string; end: string };
   optimized_at: string;
 }
 
@@ -107,7 +214,7 @@ export interface CarbonForecast {
   zone: string;
   zone_name: string;
   forecast: CarbonForecastPoint[];
-  green_windows: Record<string, unknown>[];
+  green_windows: { start: string; end: string }[];
 }
 
 export interface CarbonMetrics {
@@ -127,7 +234,7 @@ export interface CarbonDashboard {
   metrics: CarbonMetrics;
   hub_intensities: CarbonIntensityZone[];
   optimization_log: Record<string, unknown>[];
-  green_windows: Record<string, unknown>[];
+  green_windows: { start: string; end: string }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -135,15 +242,15 @@ export interface CarbonDashboard {
 // ---------------------------------------------------------------------------
 
 export type HubStatus =
-  | "creating"
-  | "ready"
-  | "updating"
-  | "scaling"
-  | "draining"
-  | "offline"
-  | "error";
+  | 'creating'
+  | 'ready'
+  | 'updating'
+  | 'scaling'
+  | 'draining'
+  | 'offline'
+  | 'error';
 
-export type HubTier = "starter" | "standard" | "performance" | "enterprise";
+export type HubTier = 'starter' | 'standard' | 'performance' | 'enterprise';
 
 export interface HubCapacity {
   total_gpus: number;
@@ -160,7 +267,7 @@ export interface HubSpec {
   name: string;
   region: string;
   tier?: HubTier;
-  sovereignty_level?: "strict" | "moderate" | "minimal";
+  sovereignty_level?: 'strict' | 'moderate' | 'minimal';
   gpu_types?: string[];
   auto_scale?: boolean;
   min_gpu_count?: number;
@@ -189,15 +296,15 @@ export interface HubList {
 // ---------------------------------------------------------------------------
 
 export type WorkloadStatus =
-  | "pending"
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "paused";
+  | 'pending'
+  | 'queued'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'paused';
 
-export type WorkloadType = "training" | "inference" | "fine_tuning" | "batch" | "serving";
+export type WorkloadType = 'training' | 'inference' | 'fine_tuning' | 'batch' | 'serving';
 
 export interface ComputeRequirements {
   gpu_count: number;
@@ -212,7 +319,7 @@ export interface WorkloadSpec {
   workload_type?: WorkloadType;
   hub_id?: string;
   compute?: ComputeRequirements;
-  priority?: "low" | "normal" | "high" | "critical";
+  priority?: 'low' | 'normal' | 'high' | 'critical';
   carbon_aware?: boolean;
   carbon_max_gco2?: number;
   image?: string;
@@ -269,7 +376,7 @@ export interface EnergyReport {
 // Models
 // ---------------------------------------------------------------------------
 
-export type ModelStatus = "available" | "loading" | "unavailable";
+export type ModelStatus = 'available' | 'loading' | 'unavailable';
 
 export interface ModelSize {
   parameters: string;
@@ -342,8 +449,15 @@ export interface Region {
 }
 
 // ---------------------------------------------------------------------------
-// Monitoring
+// Health / Monitoring
 // ---------------------------------------------------------------------------
+
+export interface HealthStatus {
+  status: string;
+  version: string;
+  uptime_seconds: number;
+  timestamp: string;
+}
 
 export interface PlatformMetrics {
   total_hubs: number;

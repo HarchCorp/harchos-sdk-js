@@ -1,11 +1,18 @@
 /**
- * Hubs resource for the HarchOS SDK.
+ * @harchos/sdk v0.3.0 — Hubs Resource
  *
  * Manages HarchOS Hubs — sovereign compute clusters.
  */
 
-import type { HttpTransport } from "../http.js";
-import type { Hub, HubCapacity, HubList, HubSpec, HubStatus, HubTier } from "../models.js";
+import type { Transport } from './inference.js';
+import type {
+  Hub,
+  HubCapacity,
+  HubList,
+  HubSpec,
+  HubStatus,
+  HubTier,
+} from '../types.js';
 
 export interface ListHubsParams {
   status?: HubStatus;
@@ -17,48 +24,48 @@ export interface ListHubsParams {
 }
 
 export class HubsResource {
-  constructor(private readonly transport: HttpTransport) {}
+  constructor(private readonly transport: Transport) {}
 
   /** List hubs with optional filtering. */
   async list(params?: ListHubsParams): Promise<HubList> {
-    return this.transport.get("/hubs", params as Record<string, unknown>);
+    return this.transport.request<HubList>('GET', '/hubs', undefined, undefined);
   }
 
   /** Retrieve a hub by ID. */
   async get(hubId: string): Promise<Hub> {
-    return this.transport.get(`/hubs/${hubId}`);
+    return this.transport.request<Hub>('GET', `/hubs/${hubId}`);
   }
 
   /** Create a new hub. */
   async create(spec: HubSpec): Promise<Hub> {
-    return this.transport.post("/hubs", spec);
+    return this.transport.request<Hub>('POST', '/hubs', spec);
   }
 
   /** Update an existing hub. */
   async update(hubId: string, spec: Partial<HubSpec>): Promise<Hub> {
-    return this.transport.put(`/hubs/${hubId}`, spec);
+    return this.transport.request<Hub>('PUT', `/hubs/${hubId}`, spec);
   }
 
   /** Get current capacity for a hub. */
   async capacity(hubId: string): Promise<HubCapacity> {
-    return this.transport.get(`/hubs/${hubId}/capacity`);
+    return this.transport.request<HubCapacity>('GET', `/hubs/${hubId}/capacity`);
   }
 
   /** Scale a hub to a target GPU count. */
   async scale(hubId: string, targetGpuCount: number): Promise<Hub> {
-    return this.transport.patch(`/hubs/${hubId}`, {
-      action: "scale",
+    return this.transport.request<Hub>('PATCH', `/hubs/${hubId}`, {
+      action: 'scale',
       target_gpu_count: targetGpuCount,
     });
   }
 
   /** Drain a hub (gracefully remove all workloads). */
   async drain(hubId: string): Promise<Hub> {
-    return this.transport.patch(`/hubs/${hubId}`, { action: "drain" });
+    return this.transport.request<Hub>('PATCH', `/hubs/${hubId}`, { action: 'drain' });
   }
 
   /** Delete a hub. */
   async delete(hubId: string): Promise<void> {
-    return this.transport.delete(`/hubs/${hubId}`);
+    await this.transport.request('DELETE', `/hubs/${hubId}`);
   }
 }

@@ -1,5 +1,5 @@
 /**
- * @harchos/sdk — The Official TypeScript/JavaScript SDK for HarchOS
+ * @harchos/sdk v0.3.0 — The Official TypeScript/JavaScript SDK for HarchOS
  *
  * HarchOS is the Operating System for Sovereign AI Infrastructure.
  * This SDK provides typed access to the HarchOS API with sovereign defaults:
@@ -7,65 +7,92 @@
  *
  * @example
  * ```ts
- * import { HarchOSClient } from "@harchos/sdk";
+ * import HarchOS from '@harchos/sdk';
  *
- * const client = new HarchOSClient({ apiKey: "hsk_..." });
+ * const client = new HarchOS({ apiKey: 'hsk_...' });
  *
- * // Carbon-aware scheduling — HarchOS's key differentiator
- * const carbon = await client.carbon.getIntensity("MA");
- * console.log(`Morocco: ${carbon.carbon_intensity_gco2_kwh} gCO2/kWh`);
- * console.log(`Renewable: ${carbon.renewable_percentage}%`);
- *
- * // Find the greenest hub for your workload
- * const optimal = await client.carbon.optimalHub({ region: "morocco", gpu_count: 4 });
- * console.log(`Best hub: ${optimal.recommended_hub_name}`);
- *
- * // List all hubs
- * const hubs = await client.hubs.list();
- *
- * // Create a workload
- * const workload = await client.workloads.create({
- *   name: "training-job",
- *   workload_type: "training",
- *   compute: { gpu_count: 4, gpu_type: "a100" },
+ * // Inference — OpenAI-compatible
+ * const completion = await client.inference.chat.completions.create({
+ *   model: 'harchos-llama-3.3-70b',
+ *   messages: [{ role: 'user', content: 'Hello' }],
  *   carbon_aware: true,
  * });
+ *
+ * // Streaming
+ * const stream = await client.inference.chat.completions.create({
+ *   model: 'harchos-llama-3.3-70b',
+ *   messages: [{ role: 'user', content: 'Hello' }],
+ *   stream: true,
+ * });
+ * for await (const chunk of stream) {
+ *   process.stdout.write(chunk.choices[0]?.delta?.content || '');
+ * }
+ *
+ * // Carbon tracking
+ * const intensity = await client.carbon.intensity('MA');
+ * const optimal = await client.carbon.optimalHub({ region: 'morocco', gpu_count: 4 });
+ *
+ * // Carbon tracker — tracks total carbon across multiple requests
+ * const tracker = client.carbon.tracker();
+ * const r1 = await client.inference.chat.completions.create({...});
+ * tracker.record(r1.carbon_footprint);
+ * const r2 = await client.inference.chat.completions.create({...});
+ * tracker.record(r2.carbon_footprint);
+ * console.log(`Total CO2: ${tracker.totalGco2}g`);
+ *
+ * // Workloads
+ * const workload = await client.workloads.create({ name: 'test', type: 'training', compute: { gpu_count: 4 } });
+ * const workloads = await client.workloads.list();
+ *
+ * // Hubs
+ * const hubs = await client.hubs.list();
  * ```
  *
  * @module @harchos/sdk
  */
 
 // Client
-export { HarchOSClient, type ClientOptions } from "./client.js";
+export { HarchOS, type ClientOptions } from './client.js';
 
 // Errors
 export {
   HarchOSError,
   AuthenticationError,
   InvalidAPIKeyError,
-  APIKeyExpiredError,
   PermissionDeniedError,
   BadRequestError,
-  UnauthorizedError,
-  ForbiddenError,
   NotFoundError,
   ConflictError,
+  ValidationError,
   RateLimitError,
   InternalServerError,
   ServiceUnavailableError,
   SovereigntyError,
-  DataResidencyError,
   CarbonBudgetExceededError,
-  ValidationError,
   TimeoutError,
   ConnectionError,
-} from "./errors.js";
+  NetworkError,
+  isHarchOSError,
+} from './errors.js';
 
-// Models
+// Types — all request and response types
 export type {
+  // Common
   PaginationMeta,
   ResourceMetadata,
-  HealthStatus,
+  // Carbon Footprint
+  CarbonFootprint,
+  // Inference
+  ChatMessageRole,
+  ChatCompletionMessageParam,
+  ToolCall,
+  ChatCompletionRequest,
+  ChatCompletionChoice,
+  ChatCompletionUsage,
+  ChatCompletionResponse,
+  ChatCompletionChunkChoice,
+  ChatCompletionChunk,
+  // Carbon
   FuelMixEntry,
   CarbonIntensityZone,
   CarbonIntensityZoneList,
@@ -75,45 +102,63 @@ export type {
   CarbonForecast,
   CarbonMetrics,
   CarbonDashboard,
+  // Hubs
   HubStatus,
   HubTier,
   HubCapacity,
   HubSpec,
   Hub,
   HubList,
+  // Workloads
   WorkloadStatus,
   WorkloadType,
   ComputeRequirements,
   WorkloadSpec,
   Workload,
   WorkloadList,
+  // Energy
   EnergyConsumption,
   EnergySource,
   EnergySummary,
   EnergyReport,
+  // Models
   ModelStatus,
   ModelSize,
   ModelCapabilities,
   ModelSpec,
   Model,
   ModelList,
+  // Pricing
   PricingPlan,
   CostBreakdown,
   CostEstimate,
+  // Regions
   Region,
+  // Health
+  HealthStatus,
   PlatformMetrics,
   DetailedHealth,
-} from "./models.js";
+} from './types.js';
 
-// Resources (for advanced usage)
-export { CarbonResource, type OptimalHubParams, type OptimizeParams } from "./resources/carbon.js";
-export { HubsResource, type ListHubsParams } from "./resources/hubs.js";
-export { WorkloadsResource, type ListWorkloadsParams } from "./resources/workloads.js";
-export { EnergyResource } from "./resources/energy.js";
-export { ModelsResource, type ListModelsParams } from "./resources/models.js";
-export { PricingResource, type EstimateCostParams } from "./resources/pricing.js";
-export { RegionsResource } from "./resources/regions.js";
-export { MonitoringResource } from "./resources/monitoring.js";
+// Resources
+export { InferenceResource, Chat, ChatCompletions, type Transport } from './resources/inference.js';
+export { WorkloadsResource, type ListWorkloadsParams } from './resources/workloads.js';
+export { HubsResource, type ListHubsParams } from './resources/hubs.js';
+export { CarbonResource, CarbonTracker, type OptimalHubParams, type OptimizeParams } from './resources/carbon.js';
+export { PricingResource, type EstimateCostParams } from './resources/pricing.js';
+export { AuthResource, type APIKeyInfo, type CreateAPIKeyParams } from './resources/auth.js';
+
+// Streaming
+export { StreamingResponse, parseSSEStream, parseSSELine } from './streaming.js';
+
+// Retry
+export { withRetry, isRetryableError, calculateDelay, type RetryConfig, type RetryResult } from './retry.js';
+
+// Config
+export { resolveConfig, type ClientConfig, SDK_VERSION } from './config.js';
 
 // Version
-export const VERSION = "0.2.2";
+export const VERSION = '0.3.0';
+
+// Default export for convenience: `import HarchOS from '@harchos/sdk'`
+export { HarchOS as default } from './client.js';

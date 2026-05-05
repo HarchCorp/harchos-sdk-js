@@ -1,74 +1,330 @@
 /**
- * HarchOS SDK — Main client.
+ * @harchos/sdk v0.3.0 — Main Client
  *
  * The primary entry point for interacting with the HarchOS API.
  * Provides sovereign defaults: region="morocco", sovereignty="strict", carbon_aware=true.
  *
  * @example
  * ```ts
- * import { HarchOSClient } from "@harchos/sdk";
+ * import HarchOS from '@harchos/sdk';
  *
- * const client = new HarchOSClient({ apiKey: "hsk_..." });
+ * const client = new HarchOS({ apiKey: 'hsk_...' });
  *
- * // Get carbon intensity for Morocco
- * const carbon = await client.carbon.getIntensity("MA");
- * console.log(`Morocco: ${carbon.carbon_intensity_gco2_kwh} gCO2/kWh`);
+ * // Inference — OpenAI-compatible
+ * const completion = await client.inference.chat.completions.create({
+ *   model: 'harchos-llama-3.3-70b',
+ *   messages: [{ role: 'user', content: 'Hello' }],
+ *   carbon_aware: true,
+ * });
  *
- * // List all hubs
+ * // Streaming
+ * const stream = await client.inference.chat.completions.create({
+ *   model: 'harchos-llama-3.3-70b',
+ *   messages: [{ role: 'user', content: 'Hello' }],
+ *   stream: true,
+ * });
+ * for await (const chunk of stream) {
+ *   process.stdout.write(chunk.choices[0]?.delta?.content || '');
+ * }
+ *
+ * // Carbon tracking
+ * const intensity = await client.carbon.intensity('MA');
+ * const optimal = await client.carbon.optimalHub({ region: 'morocco', gpu_count: 4 });
+ *
+ * // Workloads
+ * const workload = await client.workloads.create({ name: 'test', type: 'training', compute: { gpu_count: 4 } });
+ * const workloads = await client.workloads.list();
+ *
+ * // Hubs
  * const hubs = await client.hubs.list();
- * console.log(`${hubs.total} hubs available`);
  * ```
  */
 
-import { HttpTransport, type TransportConfig } from "./http.js";
-import { CarbonResource } from "./resources/carbon.js";
-import { EnergyResource } from "./resources/energy.js";
-import { HubsResource } from "./resources/hubs.js";
-import { ModelsResource } from "./resources/models.js";
-import { MonitoringResource } from "./resources/monitoring.js";
-import { PricingResource } from "./resources/pricing.js";
-import { RegionsResource } from "./resources/regions.js";
-import { WorkloadsResource } from "./resources/workloads.js";
-import type { HealthStatus } from "./models.js";
+import { resolveConfig, type ClientOptions, type ClientConfig, SDK_VERSION } from './config.js';
+
+// Re-export ClientOptions for consumers
+export type { ClientOptions } from './config.js';
+import { raiseForStatus, TimeoutError, ConnectionError, isHarchOSError } from './errors.js';
+import { isRetryableError, calculateDelay, type RetryConfig } from './retry.js';
+import type { Transport } from './resources/inference.js';
+import type { HealthStatus } from './types.js';
+
+import { InferenceResource } from './resources/inference.js';
+import { WorkloadsResource } from './resources/workloads.js';
+import { HubsResource } from './resources/hubs.js';
+import { CarbonResource } from './resources/carbon.js';
+import { PricingResource } from './resources/pricing.js';
+import { AuthResource } from './resources/auth.js';
 
 // ---------------------------------------------------------------------------
-// Configuration
+// HTTP Transport (built into the client)
 // ---------------------------------------------------------------------------
 
-export interface ClientOptions {
-  /** HarchOS API key (starts with `hsk_`). */
-  apiKey?: string;
-  /** API base URL. Default: `https://harchos-api-production.up.railway.app/v1` */
-  baseURL?: string;
-  /** Data residency region. Default: `"morocco"` */
-  region?: string;
-  /** Sovereignty enforcement level. Default: `"strict"` */
-  sovereignty?: "strict" | "moderate" | "minimal";
-  /** Enable carbon-aware scheduling. Default: `true` */
-  carbonAware?: boolean;
-  /** Request timeout in seconds. Default: `30` */
-  timeout?: number;
-  /** Maximum retry attempts. Default: `3` */
-  maxRetries?: number;
-  /** Extra HTTP headers to send with every request. */
-  defaultHeaders?: Record<string, string>;
+class HttpTransport implements Transport {
+  private readonly config: ClientConfig;
+
+  constructor(config: ClientConfig) {
+    this.config = config;
+  }
+
+  async request<T = unknown>(
+    method: string,
+    path: string,
+    body?: unknown,
+    opts?: { stream?: boolean; headers?: Record<string, string> },
+  ): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
+      try {
+        const response = await this.makeRequest(method, path, body, opts?.headers);
+
+        // For streaming requests, return the raw Response — the caller handles it
+        if (opts?.stream) {
+          return response as unknown as T;
+        }
+
+        const responseHeaders = this.extractHeaders(response);
+
+        if (!response.ok) {
+          let errorBody: string;
+          try {
+            errorBody = await response.text();
+          } catch {
+            errorBody = '';
+          }
+
+          // Retry on 429, 500, 502, 503
+          const retryable = response.status === 429 ||
+            response.status === 500 ||
+            response.status === 502 ||
+            response.status === 503;
+
+          if (retryable && attempt < this.config.maxRetries) {
+            const delayMs = this.getRetryDelay(attempt, responseHeaders);
+            await sleep(delayMs);
+            continue;
+          }
+
+          raiseForStatus(response.status, errorBody || response.statusText, responseHeaders, errorBody);
+        }
+
+        // Handle 204 No Content
+        if (response.status === 204) {
+          return undefined as T;
+        }
+
+        return (await response.json()) as T;
+      } catch (err: unknown) {
+        if (isHarchOSError(err)) {
+          throw err;
+        }
+
+        lastError = err;
+
+        // Only retry on network errors
+        if (attempt < this.config.maxRetries && isRetryableNetworkError(err)) {
+          const delayMs = this.getRetryDelay(attempt);
+          await sleep(delayMs);
+          continue;
+        }
+
+        // Convert known errors
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new TimeoutError('Request timed out');
+        }
+
+        if (err instanceof TypeError && err.message.includes('fetch')) {
+          throw new ConnectionError(err.message);
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  async rawRequest(
+    method: string,
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<Response> {
+    // For streaming, we need the raw Response object
+    // We still apply retry logic but return the Response directly
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
+      try {
+        const response = await this.makeRequest(method, path, body, headers);
+
+        if (!response.ok) {
+          const responseHeaders = this.extractHeaders(response);
+          let errorBody: string;
+          try {
+            errorBody = await response.text();
+          } catch {
+            errorBody = '';
+          }
+
+          const retryable = response.status === 429 ||
+            response.status === 500 ||
+            response.status === 502 ||
+            response.status === 503;
+
+          if (retryable && attempt < this.config.maxRetries) {
+            const delayMs = this.getRetryDelay(attempt, responseHeaders);
+            await sleep(delayMs);
+            continue;
+          }
+
+          raiseForStatus(response.status, errorBody || response.statusText, responseHeaders, errorBody);
+        }
+
+        return response;
+      } catch (err: unknown) {
+        if (isHarchOSError(err)) {
+          throw err;
+        }
+
+        lastError = err;
+
+        if (attempt < this.config.maxRetries && isRetryableNetworkError(err)) {
+          const delayMs = this.getRetryDelay(attempt);
+          await sleep(delayMs);
+          continue;
+        }
+
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new TimeoutError('Request timed out');
+        }
+
+        if (err instanceof TypeError && err.message.includes('fetch')) {
+          throw new ConnectionError(err.message);
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  // -----------------------------------------------------------------------
+  // Private helpers
+  // -----------------------------------------------------------------------
+
+  private async makeRequest(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+  ): Promise<Response> {
+    const url = this.buildURL(path);
+    const headers = this.buildHeaders(extraHeaders);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      this.config.timeout,
+    );
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private buildURL(path: string, params?: Record<string, unknown>): string {
+    const base = this.config.baseURL.replace(/\/+$/, '');
+    let url = `${base}${path}`;
+
+    if (params) {
+      const qs = Object.entries(params)
+        .filter(([, v]) => v !== undefined && v !== null)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+        .join('&');
+      if (qs) url += `?${qs}`;
+    }
+
+    return url;
+  }
+
+  private buildHeaders(extra?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': `harchos-sdk-js/${SDK_VERSION}`,
+      'X-HarchOS-Region': this.config.region,
+      'X-HarchOS-Sovereignty': this.config.sovereignty,
+      'X-HarchOS-Carbon-Aware': String(this.config.carbonAware),
+      ...this.config.defaultHeaders,
+      ...extra,
+    };
+
+    if (this.config.apiKey) {
+      headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+      headers['X-API-Key'] = this.config.apiKey;
+    }
+
+    return headers;
+  }
+
+  private extractHeaders(response: Response): Record<string, string> {
+    const result: Record<string, string> = {};
+    response.headers.forEach((v, k) => {
+      result[k.toLowerCase()] = v;
+    });
+    return result;
+  }
+
+  private getRetryDelay(attempt: number, headers?: Record<string, string>): number {
+    // Respect Retry-After header
+    if (headers?.['retry-after']) {
+      const retryAfter = Number(headers['retry-after']) * 1000;
+      if (Number.isFinite(retryAfter)) return retryAfter;
+    }
+
+    // Exponential backoff with full jitter
+    return calculateDelay(attempt, {
+      initialDelayMs: 1_000,
+      maxDelayMs: 30_000,
+      backoffMultiplier: 2,
+      jitter: 'full',
+    });
+  }
 }
 
-const DEFAULT_BASE_URL = "https://harchos-api-production.up.railway.app/v1";
-const DEFAULT_TIMEOUT = 30;
-const DEFAULT_MAX_RETRIES = 3;
-
 // ---------------------------------------------------------------------------
-// Client
+// Helpers
 // ---------------------------------------------------------------------------
 
-export class HarchOSClient {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError && err.message.includes('fetch')) return true;
+  if (err instanceof DOMException && err.name === 'AbortError') return false; // Don't retry timeouts
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Main Client Class
+// ---------------------------------------------------------------------------
+
+export class HarchOS {
   private readonly transport: HttpTransport;
-  private readonly _region: string;
-  private readonly _sovereignty: string;
-  private readonly _carbonAware: boolean;
+  private readonly _config: ClientConfig;
 
-  /** Carbon-aware scheduling resource — HarchOS's key differentiator. */
+  /** OpenAI-compatible inference with carbon tracking. */
+  readonly inference: InferenceResource;
+
+  /** Carbon-aware scheduling and tracking — HarchOS's unique differentiator. */
   readonly carbon: CarbonResource;
 
   /** Sovereign compute hub management. */
@@ -77,56 +333,23 @@ export class HarchOSClient {
   /** Workload lifecycle management. */
   readonly workloads: WorkloadsResource;
 
-  /** Energy consumption and reporting. */
-  readonly energy: EnergyResource;
-
-  /** Available AI models. */
-  readonly models: ModelsResource;
-
   /** Pricing and cost estimation. */
   readonly pricing: PricingResource;
 
-  /** Region information. */
-  readonly regions: RegionsResource;
-
-  /** Platform monitoring. */
-  readonly monitoring: MonitoringResource;
+  /** Authentication and API key management. */
+  readonly auth: AuthResource;
 
   constructor(options: ClientOptions = {}) {
-    // Build transport config from options + environment
-    const apiKey = options.apiKey ?? readEnv("HARCHOS_API_KEY");
-    const baseURL = options.baseURL ?? readEnv("HARCHOS_BASE_URL") ?? DEFAULT_BASE_URL;
-    const timeout = options.timeout ?? envNumber("HARCHOS_TIMEOUT", DEFAULT_TIMEOUT);
-    const maxRetries = options.maxRetries ?? envNumber("HARCHOS_MAX_RETRIES", DEFAULT_MAX_RETRIES);
+    this._config = resolveConfig(options);
+    this.transport = new HttpTransport(this._config);
 
-    this._region = options.region ?? readEnv("HARCHOS_REGION") ?? "morocco";
-    this._sovereignty = options.sovereignty ?? readEnv("HARCHOS_SOVEREIGNTY") ?? "strict";
-    this._carbonAware = options.carbonAware ?? true;
-
-    const config: TransportConfig = {
-      baseURL,
-      apiKey,
-      timeout,
-      maxRetries,
-      defaultHeaders: {
-        "X-HarchOS-Region": this._region,
-        "X-HarchOS-Sovereignty": this._sovereignty,
-        "X-HarchOS-Carbon-Aware": String(this._carbonAware),
-        ...options.defaultHeaders,
-      },
-    };
-
-    this.transport = new HttpTransport(config);
-
-    // Initialize resource modules
+    // Initialize resources
+    this.inference = new InferenceResource(this.transport);
     this.carbon = new CarbonResource(this.transport);
     this.hubs = new HubsResource(this.transport);
     this.workloads = new WorkloadsResource(this.transport);
-    this.energy = new EnergyResource(this.transport);
-    this.models = new ModelsResource(this.transport);
     this.pricing = new PricingResource(this.transport);
-    this.regions = new RegionsResource(this.transport);
-    this.monitoring = new MonitoringResource(this.transport);
+    this.auth = new AuthResource(this.transport);
   }
 
   // ------------------------------------------------------------------
@@ -135,17 +358,22 @@ export class HarchOSClient {
 
   /** The configured data residency region. */
   get region(): string {
-    return this._region;
+    return this._config.region;
   }
 
   /** The sovereignty enforcement level. */
   get sovereignty(): string {
-    return this._sovereignty;
+    return this._config.sovereignty;
   }
 
   /** Whether carbon-aware scheduling is enabled. */
   get carbonAware(): boolean {
-    return this._carbonAware;
+    return this._config.carbonAware;
+  }
+
+  /** The resolved API base URL. */
+  get baseURL(): string {
+    return this._config.baseURL;
   }
 
   // ------------------------------------------------------------------
@@ -154,7 +382,7 @@ export class HarchOSClient {
 
   /** Check the health of the HarchOS API. */
   async health(): Promise<HealthStatus> {
-    return this.transport.get("/health");
+    return this.transport.request<HealthStatus>('GET', '/health');
   }
 
   // ------------------------------------------------------------------
@@ -162,27 +390,13 @@ export class HarchOSClient {
   // ------------------------------------------------------------------
 
   /** Create a client configured from environment variables. */
-  static fromEnv(overrides?: ClientOptions): HarchOSClient {
-    return new HarchOSClient(overrides);
+  static fromEnv(overrides?: ClientOptions): HarchOS {
+    return new HarchOS(overrides);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Default export
 // ---------------------------------------------------------------------------
 
-function readEnv(key: string): string | undefined {
-  if (typeof process !== "undefined" && process.env) {
-    return process.env[key];
-  }
-  return undefined;
-}
-
-function envNumber(key: string, fallback: number): number {
-  const val = readEnv(key);
-  if (val !== undefined) {
-    const n = Number(val);
-    if (!isNaN(n)) return n;
-  }
-  return fallback;
-}
+export default HarchOS;
